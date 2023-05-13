@@ -50,12 +50,12 @@ public class App
 
 
     public static void main(String[] args) {
-        if (!initializeConnectionAddress(args)) return;
-//        host = "localhost";
-//        port = 2048;
+//        if (!initializeConnectionAddress(args)) return;
+        host = "localhost";
+        port = 2048;
         Scanner userScanner = new Scanner(System.in);
         UserHandler userHandler = new UserHandler(userScanner);
-        Client client = new Client(host, port, RECONNECTION_TIMEOUT, MAX_RECONNECTION_ATTEMPTS, userHandler);
+        Client client = new Client(host, port, userHandler);
         client.run();
         userScanner.close();
     }

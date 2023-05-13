@@ -60,7 +60,7 @@ public class App {
                 new ServerExitCommand()
         );
         RequestHandler requestHandler = new RequestHandler(commandManager);
-        Server server = new Server(PORT, CONNECTION_TIMEOUT, requestHandler);
+        Server server = new Server(PORT, requestHandler);
         server.run();
     }
 }

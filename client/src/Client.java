@@ -1,129 +1,133 @@
 package src;
 
-import main.exceptions.ConnectionErrorException;
-import main.exceptions.NotInDeclaredLimitsException;
+import main.exceptions.OpeningClientSocketException;
 import main.interaction.Request;
 import main.interaction.Response;
+import main.interaction.ResponseCode;
 import main.utility.Outputer;
 import src.utility.UserHandler;
 
 import java.io.*;
 import java.net.InetSocketAddress;
-import java.nio.channels.SocketChannel;
+import java.nio.ByteBuffer;
+import java.nio.channels.DatagramChannel;
 
 public class Client {
     private String host;
     private int port;
-    private int reconnectionTimeout;
-    private int reconnectionAttempts;
-    private int maxReconnectionAttempts;
-    private UserHandler userHandler;
-    private SocketChannel socketChannel;
-    private ObjectOutputStream serverWriter;
-    private ObjectInputStream serverReader;
+    private DatagramChannel clientSocket;
 
-    public Client(String host, int port, int reconnectionTimeout, int maxReconnectionAttempts, UserHandler userHandler) {
+    private UserHandler userHandler;
+
+    public Client(String host, int port, UserHandler userHandler) {
         this.host = host;
         this.port = port;
-        this.reconnectionTimeout = reconnectionTimeout;
-        this.maxReconnectionAttempts = maxReconnectionAttempts;
         this.userHandler = userHandler;
     }
 
     /**
-     * Begins client operation.
+     * Starts client operation.
      */
+
     public void run() {
         try {
-            boolean processingStatus = true;
-            while (processingStatus) {
-                try {
-                    connectToServer();
-                    processingStatus = processRequestToServer();
-                } catch (ConnectionErrorException exception) {
-                    if (reconnectionAttempts >= maxReconnectionAttempts) {
-                        Outputer.printerror("Превышено количество попыток подключения!");
-                        break;
-                    }
-                    try {
-                        Thread.sleep(reconnectionTimeout);
-                    } catch (IllegalArgumentException timeoutException) {
-                        Outputer.printerror("Время ожидания подключения '" + reconnectionTimeout +
-                                "' находится за пределами возможных значений!");
-                        Outputer.println("Повторное подключение будет произведено немедленно.");
-                    } catch (Exception timeoutException) {
-                        Outputer.printerror("Произошла ошибка при попытке ожидания подключения!");
-                        Outputer.println("Повторное подключение будет произведено немедленно.");
-                    }
-                }
-                reconnectionAttempts++;
-            }
-            if (socketChannel != null) socketChannel.close();
-            Outputer.println("Работа клиента успешно завершена.");
-        } catch (NotInDeclaredLimitsException exception) {
-            Outputer.printerror("Клиент не может быть запущен!");
-        } catch (IOException exception) {
-            Outputer.printerror("Произошла ошибка при попытке завершить соединение с сервером!");
+            openClientSocket();
+            sendRequest();
+        } catch (OpeningClientSocketException exception) {
+            Outputer.printerror("Не удалось установить соединение с сервером!");
+        } finally {
+            stop();
         }
+
     }
 
     /**
-     * Connecting to server.
-     * tạo kết nối đến server và tạo 2 luồng stream để đọc và ghi
+     * Finishes client operation.
      */
-    private void connectToServer() throws ConnectionErrorException, NotInDeclaredLimitsException {
+
+    private void stop() {
+        if (clientSocket == null) return;
         try {
-            if (reconnectionAttempts >= 1) Outputer.println("Повторное соединение с сервером...");
-            socketChannel = SocketChannel.open(new InetSocketAddress(host, port));
-            Outputer.println("Соединение с сервером успешно установлено.");
-            Outputer.println("Ожидание разрешения на обмен данными...");
-            serverWriter = new ObjectOutputStream(socketChannel.socket().getOutputStream());
-            serverReader = new ObjectInputStream(socketChannel.socket().getInputStream());
-            Outputer.println("Разрешение на обмен данными получено.");
-        } catch (IllegalArgumentException exception) {
-            Outputer.printerror("Адрес сервера введен некорректно!");
-            throw new NotInDeclaredLimitsException();
+            clientSocket.close();
+            Outputer.println("Работа клиента успешно завершена.");
         } catch (IOException exception) {
-            Outputer.printerror("Произошла ошибка при соединении с сервером!");
-            throw new ConnectionErrorException();
+            Outputer.printerror("Произошла ошибка при завершении работы клиента!");
         }
     }
 
     /**
-     * Server request process.
+     * Open client socket.
      */
-    private boolean processRequestToServer() {
+
+    private void openClientSocket() throws OpeningClientSocketException {
+        try {
+            clientSocket = DatagramChannel.open();
+        } catch (IOException exception) {
+            Outputer.printerror("Произошла ошибка при открытии канала клиента!");
+            throw new OpeningClientSocketException();
+        }
+    }
+
+    /**
+     * Sending requests to server.
+     */
+
+    private void sendRequest() {
         Request requestToServer = null;
         Response serverResponse = null;
-        //thực thi cho đến khi nhận câu lệnh exit sẽ ngững luồng phía client
-        do {
+        while (true){
             try {
                 requestToServer = serverResponse != null ? userHandler.handle(serverResponse.getResponseCode()) :
                         userHandler.handle(null);
                 if (requestToServer.isEmpty()) continue;
-//                Outputer.println("add chua duoc ghi vao object r");
-                serverWriter.writeObject(requestToServer);
-//                Outputer.println("add duoc ghi vao object r");
-                serverResponse = (Response) serverReader.readObject();
-                Outputer.print(serverResponse.getResponseBody());
-            } catch ( NotSerializableException exception) {
-                Outputer.printerror("Произошла ошибка при отправке данных на сервер!");
-            } catch (InvalidClassException exception) {
-                Outputer.printerror("No bat loi khac!");
-            } catch (ClassNotFoundException exception) {
-                Outputer.printerror("Произошла ошибка при чтении полученных данных!");
-            } catch (IOException exception) {
-                Outputer.printerror("Соединение с сервером разорвано!");
-                try {
-                    reconnectionAttempts++;
-                    connectToServer();
-                } catch (ConnectionErrorException | NotInDeclaredLimitsException reconnectionException) {
-                    if (requestToServer.getCommandName().equals("exit"))
-                        Outputer.println("Команда не будет зарегистрирована на сервере.");
-                    else Outputer.println("Попробуйте повторить команду позднее.");
+                byte[] requestData = serialize(requestToServer);
+                ByteBuffer requestBuffer = ByteBuffer.wrap(requestData);
+                InetSocketAddress serverAddress = new InetSocketAddress(host,port);
+                clientSocket.send(requestBuffer, serverAddress);
+                if (requestToServer.getCommandName().equals("exit")) {
+                    break;
                 }
+
+                byte[] buffer = new byte[65507];
+                ByteBuffer responseBuffer = ByteBuffer.wrap(buffer);
+                clientSocket.receive(responseBuffer);
+                serverResponse = (Response) deserialize(buffer);
+                Outputer.println(serverResponse.getResponseBody());
+                if (serverResponse.getResponseCode() == ResponseCode.SERVER_EXIT) {
+                    break;
+                }
+            } catch (ClassNotFoundException | InvalidClassException | NotSerializableException exception) {
+                Outputer.printerror("Произошла ошибка при отправке данных на сервер!");
+            } catch (IOException exception) {
+                Outputer.printerror("Произошла ошибка при попытке отправки данных на сервер!");
             }
-        } while (!requestToServer.getCommandName().equals("exit"));
-        return false;
+
+        }
+
     }
+
+    /**
+     * Serialize object to byte array.
+     */
+
+    private byte[] serialize(Object obj) throws IOException {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
+        objectOutputStream.writeObject(obj);
+        objectOutputStream.flush();
+        return byteArrayOutputStream.toByteArray();
+    }
+
+    /**
+     * Deserialize byte array to object.
+     */
+
+
+    private Object deserialize(byte[] data) throws IOException, ClassNotFoundException {
+        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(data);
+        ObjectInputStream objectInputStream = new ObjectInputStream(byteArrayInputStream);
+        return objectInputStream.readObject();
+    }
+
+
 }

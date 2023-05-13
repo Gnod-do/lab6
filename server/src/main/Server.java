@@ -1,7 +1,5 @@
 package main;
 
-import main.exceptions.ClosingSocketException;
-import main.exceptions.ConnectionErrorException;
 import main.exceptions.OpeningServerSocketException;
 import main.interaction.Request;
 import main.interaction.Response;
@@ -10,37 +8,29 @@ import main.utility.Outputer;
 import main.utility.RequestHandler;
 
 import java.io.*;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.SocketTimeoutException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 
 public class Server {
     private int port;
-    private int soTimeout;
-    private ServerSocket serverSocket;
+    private DatagramSocket serverSocket;
     private RequestHandler requestHandler;
 
-    public Server(int port, int soTimeout, RequestHandler requestHandler) {
+    public Server(int port, RequestHandler requestHandler) {
         this.port = port;
-        this.soTimeout = soTimeout;
         this.requestHandler = requestHandler;
     }
 
     /**
      * Begins server operation.
      */
-    public void run() {
+
+    public void run(){
         try {
             openServerSocket();
             boolean processingStatus = true;
             while (processingStatus) {
-                try (Socket clientSocket = connectToClient()) {
-                    processingStatus = processClientRequest(clientSocket);
-                } catch (ConnectionErrorException | SocketTimeoutException exception) {
-                    break;
-                } catch (IOException exception) {
-                    Outputer.printerror("Произошла ошибка при попытке завершить соединение с клиентом!");
-                }
+                processingStatus = processClientRequest();
             }
             stop();
         } catch (OpeningServerSocketException exception) {
@@ -51,25 +41,20 @@ public class Server {
     /**
      * Finishes server operation.
      */
-    private void stop() {
-        try {
-            if (serverSocket == null) throw new ClosingSocketException();
-            serverSocket.close();
-            Outputer.println("Работа сервера успешно завершена.");
-        } catch (ClosingSocketException exception) {
-            Outputer.printerror("Невозможно завершить работу еще не запущенного сервера!");
-        } catch (IOException exception) {
-            Outputer.printerror("Произошла ошибка при завершении работы сервера!");
-        }
+
+    public void stop() {
+        if (serverSocket == null) return;
+        serverSocket.close();
+        Outputer.println("Работа сервера успешно завершена.");
     }
 
     /**
      * Open server socket.
      */
+
     private void openServerSocket() throws OpeningServerSocketException {
         try {
-            serverSocket = new ServerSocket(port);
-            serverSocket.setSoTimeout(soTimeout);
+            serverSocket = new DatagramSocket(port);
         } catch (IllegalArgumentException exception) {
             Outputer.printerror("Порт '" + port + "' находится за пределами возможных значений!");
             throw new OpeningServerSocketException();
@@ -80,44 +65,27 @@ public class Server {
     }
 
     /**
-     * Connecting to client.
-     */
-    private Socket connectToClient() throws ConnectionErrorException, SocketTimeoutException {
-        try {
-            Outputer.println("Прослушивание порта '" + port + "'...");
-            Socket clientSocket = serverSocket.accept();
-            Outputer.println("Соединение с клиентом успешно установлено.");
-            return clientSocket;
-        } catch (SocketTimeoutException exception) {
-            Outputer.printerror("Превышено время ожидания подключения!");
-            throw new SocketTimeoutException();
-        } catch (IOException exception) {
-            Outputer.printerror("Произошла ошибка при соединении с клиентом!");
-            throw new ConnectionErrorException();
-        }
-    }
-
-    /**
      * The process of receiving a request from a client.
      */
-    private boolean processClientRequest(Socket clientSocket) {
+
+    private boolean processClientRequest() {
+        byte[] buffer = new byte[65507];
+        DatagramPacket requestPacket = new DatagramPacket(buffer, buffer.length);
         Request userRequest = null;
         Response responseToUser = null;
-        try (ObjectInputStream clientReader = new ObjectInputStream(clientSocket.getInputStream());
-             ObjectOutputStream clientWriter = new ObjectOutputStream(clientSocket.getOutputStream())) {
-            do {
-                userRequest = (Request) clientReader.readObject();
-                Outputer.println(userRequest.getCommandName());
-                responseToUser = requestHandler.handle(userRequest);
-                clientWriter.writeObject(responseToUser);
-                clientWriter.flush();
-            } while (responseToUser.getResponseCode() != ResponseCode.SERVER_EXIT);
-            // trao đổi thông tin đến khi gặp câu lệnh server_exit sẽ ngừng luồng ở server
-            return false;
+        try {
+            serverSocket.receive(requestPacket);
+            userRequest = (Request) deserialize(requestPacket.getData());
+            Outputer.println(userRequest.getCommandName());
+            responseToUser = requestHandler.handle(userRequest);
+            byte[] responseData = serialize(responseToUser);
+            DatagramPacket responsePacket = new DatagramPacket(responseData, responseData.length, requestPacket.getAddress(), requestPacket.getPort());
+            serverSocket.send(responsePacket);
+            if (responseToUser.getResponseCode() == ResponseCode.SERVER_EXIT) {
+                return false;
+            }
         } catch (ClassNotFoundException exception) {
             Outputer.printerror("Произошла ошибка при чтении полученных данных!");
-        } catch (InvalidClassException | NotSerializableException exception) {
-            Outputer.printerror("Произошла ошибка при отправке данных на клиент!");
         } catch (IOException exception) {
             if (userRequest == null) {
                 Outputer.printerror("Непредвиденный разрыв соединения с клиентом!");
@@ -126,5 +94,26 @@ public class Server {
             }
         }
         return true;
+    }
+
+    /**
+     * Serialize object to byte array.
+     */
+
+    private byte[] serialize(Object obj) throws IOException {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
+        objectOutputStream.writeObject(obj);
+        return byteArrayOutputStream.toByteArray();
+    }
+
+    /**
+     * Deserialize byte array to object.
+     */
+
+    private Object deserialize(byte[] data) throws IOException, ClassNotFoundException {
+        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(data);
+        ObjectInputStream objectInputStream = new ObjectInputStream(byteArrayInputStream);
+        return objectInputStream.readObject();
     }
 }
