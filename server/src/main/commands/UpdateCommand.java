@@ -62,7 +62,7 @@ public class UpdateCommand extends  AbstractCommand{
                     semester,
                     groupAdmin
             ));
-            ResponseOutputer.appenderror("группа успешно изменена!");
+            ResponseOutputer.appendln("группа успешно изменена!");
             return true;
         } catch (WrongAmountOfElementsException exception) {
             ResponseOutputer.appendln("Использование: '" + getName() + " " + getUsage() + "'");

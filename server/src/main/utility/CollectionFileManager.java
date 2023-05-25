@@ -147,7 +147,7 @@ public class CollectionFileManager {
                     }
 //                    collection.add(studyGroup);
                 }
-                System.out.println(collection);
+//                System.out.println(collection);
 //                App.logger.info("Коллекция успешна загружена!");
                 return collection;
             } catch (FileNotFoundException exception) {

@@ -72,10 +72,10 @@ public class RequestHandler {
                 if (!commandManager.clear(commandStringArgument, commandObjectArgument))
                     return ResponseCode.ERROR;
                 break;
-            case "save":
-                if (!commandManager.save(commandStringArgument, commandObjectArgument))
-                    return ResponseCode.ERROR;
-                break;
+//            case "save":
+//                if (!commandManager.save(commandStringArgument, commandObjectArgument))
+//                    return ResponseCode.ERROR;
+//                break;
             case "execute_script":
                 if (!commandManager.executeScript(commandStringArgument, commandObjectArgument))
                     return ResponseCode.ERROR;

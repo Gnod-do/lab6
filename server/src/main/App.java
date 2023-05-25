@@ -13,7 +13,7 @@ import java.io.IOException;
 /**
  * Main server class. Creates all server instances.
  *
- * @author Do Van Dong- P3125.
+ * Do Van Dong- P3125.
  */
 
 public class App {
@@ -48,7 +48,7 @@ public class App {
                 new UpdateCommand(collectionManager),
                 new RemoveByIdCommand(collectionManager),
                 new ClearCommand(collectionManager),
-                new SaveCommand(collectionManager),
+
                 new ExitCommand(),
                 new ExecuteScriptCommand(),
                 new RemoveAtIndexCommand(collectionManager),
@@ -56,11 +56,19 @@ public class App {
                 new HistoryCommand(),
                 new SumOfTransferredStudentsCommand(collectionManager),
                 new MinBySemesterEnumCommand(collectionManager),
-                new GroupCountingByCoordinatesCommand(collectionManager),
-                new ServerExitCommand()
+                new GroupCountingByCoordinatesCommand(collectionManager)
+
         );
+
+        //                new SaveCommand(collectionManager),
+//        new ServerExitCommand()
+
+
+//        Thread thread = new Thread(new ConsoleHandle(collectionManager));
+//        thread.setDaemon(true);
+//        thread.start();
         RequestHandler requestHandler = new RequestHandler(commandManager);
-        Server server = new Server(PORT, requestHandler);
+        Server server = new Server(PORT, requestHandler, collectionManager);
         server.run();
     }
 }

@@ -53,9 +53,9 @@ public class CommandManager {
     private Command serverExitCommand;
 
     public CommandManager(Command helpCommand, Command infoCommand, Command showCommand, Command addCommand, Command updateCommand,
-                          Command removeByIdCommand, Command clearCommand, Command saveCommand, Command exitCommand, Command executeScriptCommand,
+                          Command removeByIdCommand, Command clearCommand, Command exitCommand, Command executeScriptCommand,
                           Command removeAtIndexCommand, Command sortCommand, Command historyCommand, Command sumOfTransferredStudentsCommand,
-                          Command minBySemesterEnumCommand, Command groupCountingByCoordinatesCommand, Command serverExitCommand) {
+                          Command minBySemesterEnumCommand, Command groupCountingByCoordinatesCommand) {
         this.helpCommand = helpCommand;
         this.infoCommand = infoCommand;
         this.showCommand = showCommand;
@@ -63,7 +63,7 @@ public class CommandManager {
         this.updateCommand = updateCommand;
         this.removeByIdCommand = removeByIdCommand;
         this.clearCommand = clearCommand;
-        this.saveCommand = saveCommand;
+//        this.saveCommand = saveCommand;
         this.exitCommand = exitCommand;
         this.executeScriptCommand = executeScriptCommand;
         this.removeAtIndexCommand = removeAtIndexCommand;
@@ -72,7 +72,7 @@ public class CommandManager {
         this.sumOfTransferredStudentsCommand = sumOfTransferredStudentsCommand;
         this.minBySemesterEnumCommand = minBySemesterEnumCommand;
         this.groupCountingByCoordinatesCommand = groupCountingByCoordinatesCommand;
-        this.serverExitCommand = serverExitCommand;
+//        this.serverExitCommand = serverExitCommand;
 
         commands.add(helpCommand);
         commands.add(infoCommand);
@@ -81,7 +81,7 @@ public class CommandManager {
         commands.add(updateCommand);
         commands.add(removeByIdCommand);
         commands.add(clearCommand);
-        commands.add(saveCommand);
+//        commands.add(saveCommand);
         commands.add(exitCommand);
         commands.add(executeScriptCommand);
         commands.add(removeAtIndexCommand);
@@ -90,7 +90,7 @@ public class CommandManager {
         commands.add(sumOfTransferredStudentsCommand);
         commands.add(minBySemesterEnumCommand);
         commands.add(groupCountingByCoordinatesCommand);
-        commands.add(serverExitCommand);
+//        commands.add(serverExitCommand);
     }
 
     /**

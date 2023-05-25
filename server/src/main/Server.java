@@ -4,6 +4,7 @@ import main.exceptions.OpeningServerSocketException;
 import main.interaction.Request;
 import main.interaction.Response;
 import main.interaction.ResponseCode;
+import main.utility.CollectionManager;
 import main.utility.Outputer;
 import main.utility.RequestHandler;
 
@@ -16,9 +17,12 @@ public class Server {
     private DatagramSocket serverSocket;
     private RequestHandler requestHandler;
 
-    public Server(int port, RequestHandler requestHandler) {
+    private CollectionManager collectionManager;
+
+    public Server(int port, RequestHandler requestHandler, CollectionManager collectionManager) {
         this.port = port;
         this.requestHandler = requestHandler;
+        this.collectionManager = collectionManager;
     }
 
     /**
@@ -28,13 +32,26 @@ public class Server {
     public void run(){
         try {
             openServerSocket();
-            boolean processingStatus = true;
-            while (processingStatus) {
-                processingStatus = processClientRequest();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+            while(true){
+                if (reader.ready()){
+                    String line = reader.readLine();
+                    System.out.println("Read line: " + line);
+                    if (line.trim().equals("save")) {
+                        collectionManager.saveCollection();
+                        Outputer.println("Collection saved in file");
+                    }
+                } else {
+
+                      boolean  processingStatus = processClientRequest();
+
+                }
             }
-            stop();
+
         } catch (OpeningServerSocketException exception) {
             Outputer.printerror("Сервер не может быть запущен!");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
